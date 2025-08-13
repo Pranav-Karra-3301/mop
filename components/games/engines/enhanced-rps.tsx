@@ -193,12 +193,17 @@ export function EnhancedRPS({
       }))
     }
     
+    // Only show animation every 5th round
     const lastResult = results[results.length - 1]
-    setCurrentGame({
-      player1Move: lastResult.player1Move,
-      player2Move: lastResult.player2Move,
-      winner: lastResult.winner,
-    })
+    const shouldShowAnimation = (processedRef.current + currentBatch) % 5 === 0 || processedRef.current + currentBatch >= session.count
+    
+    if (shouldShowAnimation) {
+      setCurrentGame({
+        player1Move: lastResult.player1Move,
+        player2Move: lastResult.player2Move,
+        winner: lastResult.winner,
+      })
+    }
     
     // Store all games for history display
     setAllGames(prev => [

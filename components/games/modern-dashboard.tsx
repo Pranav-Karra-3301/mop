@@ -3,9 +3,15 @@
 import { useState, useEffect, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { 
-  Eye, EyeOff, RefreshCw
+  Eye, EyeOff, RefreshCw, Settings, Info, Shuffle
 } from "lucide-react"
 import Image from "next/image"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { GridCoinFlip } from "./engines/grid-coin-flip"
 import { EnhancedRPS } from "./engines/enhanced-rps"
 import { HighCardGame } from "./engines/high-card-game"
@@ -27,6 +33,11 @@ interface ModernDashboardProps {
   player2: string
   masterSeed: string
   onSessionUpdate: (sessionId: string, completed: number, result?: any) => void
+  gameSettings: {
+    customSeed: string
+    useCustomSeed: boolean
+  }
+  onGameSettingsChange: (settings: { customSeed: string, useCustomSeed: boolean }) => void
 }
 
 export function ModernDashboard({
@@ -35,6 +46,8 @@ export function ModernDashboard({
   player2,
   masterSeed,
   onSessionUpdate,
+  gameSettings,
+  onGameSettingsChange,
 }: ModernDashboardProps) {
   const [isResetting, setIsResetting] = useState(false)
   const [verboseMode, setVerboseMode] = useState(true) // Show verbose by default
@@ -115,7 +128,7 @@ export function ModernDashboard({
           whileHover={{ scale: 1.02 }}
         >
           <div className="flex items-center gap-3">
-            <Image src="/dice.svg" alt="Dice" width={28} height={28} className="w-7 h-7 drop-shadow-md filter brightness-110" />
+            <Image src="/dice.svg" alt="Dice" width={40} height={40} className="w-10 h-10 drop-shadow-md filter brightness-110" />
             <div>
               <div className="text-2xl font-bold">{analytics.totalGames}</div>
               <div className="text-xs text-muted-foreground">Total Games</div>
@@ -128,7 +141,7 @@ export function ModernDashboard({
           whileHover={{ scale: 1.02 }}
         >
           <div className="flex items-center gap-3">
-            <Image src="/speed.svg" alt="Speed" width={28} height={28} className="w-7 h-7 drop-shadow-md filter brightness-110" />
+            <Image src="/speed.svg" alt="Speed" width={40} height={40} className="w-10 h-10 drop-shadow-md filter brightness-110" />
             <div>
               <div className="text-2xl font-bold">{Math.round(stats.gamesPerSecond)}/s</div>
               <div className="text-xs text-muted-foreground">Game Speed</div>
@@ -141,7 +154,7 @@ export function ModernDashboard({
           whileHover={{ scale: 1.02 }}
         >
           <div className="flex items-center gap-3">
-            <Image src="/1.svg" alt="Player 1" width={28} height={28} className="w-7 h-7 drop-shadow-md filter brightness-110" />
+            <Image src="/1.svg" alt="Player 1" width={40} height={40} className="w-10 h-10 drop-shadow-md filter brightness-110" />
             <div>
               <div className="text-2xl font-bold">{analytics.player1TotalWins}</div>
               <div className="text-xs text-muted-foreground">{player1} Wins</div>
@@ -154,7 +167,7 @@ export function ModernDashboard({
           whileHover={{ scale: 1.02 }}
         >
           <div className="flex items-center gap-3">
-            <Image src="/2.svg" alt="Player 2" width={28} height={28} className="w-7 h-7 drop-shadow-md filter brightness-110" />
+            <Image src="/2.svg" alt="Player 2" width={40} height={40} className="w-10 h-10 drop-shadow-md filter brightness-110" />
             <div>
               <div className="text-2xl font-bold">{analytics.player2TotalWins}</div>
               <div className="text-xs text-muted-foreground">{player2} Wins</div>
@@ -255,86 +268,132 @@ export function ModernDashboard({
 
         {/* Analytics Sidebar */}
         <div className="space-y-6">
-          {/* Overall Progress with Winner */}
+          {/* Game State Settings */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             className="bg-card rounded-2xl p-6 border border-border"
           >
-            <h3 className="text-lg font-semibold mb-4">Overall Progress</h3>
-            
-            {/* Winner Announcement */}
-            {analytics.completionRate === 100 && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="mb-4 p-3 bg-gradient-to-r from-primary/20 to-primary/10 rounded-xl text-center"
-              >
-                <div className="flex items-center justify-center gap-2">
-                  <Image src="/!.svg" alt="Winner" width={20} height={20} />
-                  <span className="font-semibold">
-                    {analytics.player1TotalWins > analytics.player2TotalWins ? player1 : 
-                     analytics.player2TotalWins > analytics.player1TotalWins ? player2 : "Tie"} Wins!
-                  </span>
-                </div>
-              </motion.div>
-            )}
-            
-            {/* Progress Bar Grid */}
-            <div className="space-y-4">
-              <div className="flex gap-1">
-                {Array.from({ length: 20 }, (_, i) => {
-                  const segmentProgress = (analytics.completionRate / 100) * 20
-                  const isFilled = i < segmentProgress
-                  const isPartial = i === Math.floor(segmentProgress) && segmentProgress % 1 !== 0
-                  
-                  return (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0 }}
-                      animate={{ 
-                        opacity: 1,
-                        backgroundColor: isFilled ? 'rgb(59 130 246)' : 
-                                       isPartial ? 'rgb(59 130 246 / 0.5)' : 
-                                       'rgb(30 30 30 / 0.3)'
-                      }}
-                      transition={{ delay: i * 0.02 }}
-                      className="flex-1 h-2 rounded-full"
-                    />
-                  )
-                })}
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold">{Math.round(analytics.completionRate)}%</div>
-                <div className="text-sm text-muted-foreground">
-                  {analytics.totalGames} of {analytics.totalPossible} games
-                </div>
-              </div>
+            <div className="flex items-center gap-2 mb-4">
+              <Settings className="h-5 w-5" />
+              <h3 className="text-lg font-semibold">Game State Settings</h3>
             </div>
             
-            {/* Replay Button */}
-            {analytics.completionRate === 100 && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.3 }}
-                className="mt-4"
-              >
-                <button
-                  onClick={() => {
-                    setIsResetting(true)
-                    setTimeout(() => {
-                      window.location.reload()
-                    }, 500)
-                  }}
-                  disabled={isResetting}
-                  className="w-full p-2 bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors flex items-center justify-center gap-2"
-                >
-                  <RefreshCw className={`h-4 w-4 ${isResetting ? 'animate-spin' : ''}`} />
-                  <span>Play Again</span>
-                </button>
-              </motion.div>
-            )}
+            <div className="space-y-4">
+              {/* Master Seed Control */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="custom-seed" className="text-sm font-medium">Master Seed</Label>
+                  <HoverCard>
+                    <HoverCardTrigger>
+                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-80">
+                      <div className="space-y-2">
+                        <h4 className="font-semibold">Master Seed</h4>
+                        <p className="text-sm text-muted-foreground">
+                          The cryptographic seed that determines all game outcomes. When using a custom seed, 
+                          games become reproducible - the same seed will always produce the same results. 
+                          When disabled, a cryptographically secure random seed is generated automatically.
+                        </p>
+                        <p className="text-sm font-medium">User Editable: Yes</p>
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
+                </div>
+                
+                <div className="flex items-center space-x-2 mb-2">
+                  <Switch
+                    id="use-custom-seed"
+                    checked={gameSettings.useCustomSeed}
+                    onCheckedChange={(checked) => 
+                      onGameSettingsChange({ ...gameSettings, useCustomSeed: checked })
+                    }
+                  />
+                  <Label htmlFor="use-custom-seed" className="text-sm">
+                    Use Custom Seed
+                  </Label>
+                </div>
+                
+                <div className="flex gap-2">
+                  <Input
+                    id="custom-seed"
+                    placeholder="Enter hex seed (auto-generated if empty)"
+                    value={gameSettings.customSeed}
+                    onChange={(e) => 
+                      onGameSettingsChange({ ...gameSettings, customSeed: e.target.value })
+                    }
+                    disabled={!gameSettings.useCustomSeed}
+                    className="font-mono text-xs"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const newSeed = Math.random().toString(36).substring(2, 15) + 
+                                     Math.random().toString(36).substring(2, 15)
+                      onGameSettingsChange({ ...gameSettings, customSeed: newSeed })
+                    }}
+                    disabled={!gameSettings.useCustomSeed}
+                  >
+                    <Shuffle className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              
+              {/* Current Master Seed Display */}
+              {masterSeed && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm font-medium">Current Master Seed</Label>
+                    <HoverCard>
+                      <HoverCardTrigger>
+                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80">
+                        <div className="space-y-2">
+                          <h4 className="font-semibold">Current Master Seed</h4>
+                          <p className="text-sm text-muted-foreground">
+                            This is the actual seed being used for the current game session. 
+                            All randomness in every game is derived from this seed using deterministic algorithms.
+                          </p>
+                          <p className="text-sm font-medium">User Editable: No (generated at game start)</p>
+                        </div>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
+                  <div className="p-2 bg-muted rounded text-xs font-mono break-all">
+                    {masterSeed}
+                  </div>
+                </div>
+              )}
+              
+              {/* Game Algorithm Info */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium">Randomness Algorithm</Label>
+                  <HoverCard>
+                    <HoverCardTrigger>
+                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-80">
+                      <div className="space-y-2">
+                        <h4 className="font-semibold">Deterministic Randomness</h4>
+                        <p className="text-sm text-muted-foreground">
+                          Uses cryptographic hashing with context-specific derivation. Each game outcome 
+                          is derived using: deriveGameRandom(masterSeed, gameContext, gameIndex). 
+                          This ensures reproducibility while maintaining statistical randomness.
+                        </p>
+                        <p className="text-sm font-medium">User Editable: No (system algorithm)</p>
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
+                </div>
+                <Badge variant="secondary" className="text-xs">
+                  Cryptographic Hash + XOR Mixing
+                </Badge>
+              </div>
+            </div>
           </motion.div>
 
           {/* Win Rate Visualization */}

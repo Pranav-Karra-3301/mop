@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { deriveGameRandom } from "@/lib/crypto/seed"
+import Image from "next/image"
 
 interface GameSession {
   id: string
@@ -31,7 +32,11 @@ export function GridCoinFlip({
   onUpdate,
   onStreamOperation,
 }: GridCoinFlipProps) {
-  const [grid, setGrid] = useState<Array<{ result: 'heads' | 'tails' | null, index: number }>>([])
+  const [allFlips, setAllFlips] = useState<Array<{
+    result: 'heads' | 'tails'
+    winner: string
+    round: number
+  }>>([])
   const [stats, setStats] = useState({
     headsCount: 0,
     tailsCount: 0,
@@ -41,15 +46,10 @@ export function GridCoinFlip({
   const intervalRef = useRef<NodeJS.Timeout>()
   const processedRef = useRef(0)
 
-  // Initialize grid
+  // Initialize state
   useEffect(() => {
-    const gridSize = session.count
-    const initialGrid = Array.from({ length: gridSize }, (_, i) => ({
-      result: null as 'heads' | 'tails' | null,
-      index: i
-    }))
-    setGrid(initialGrid)
     processedRef.current = 0
+    setAllFlips([])
     setStats({
       headsCount: 0,
       tailsCount: 0,
@@ -103,7 +103,6 @@ export function GridCoinFlip({
     if (currentBatch <= 0) return
     
     const results = []
-    const newGrid = [...grid]
     
     // Determine side assignment for this batch
     const assignmentSeed = deriveGameRandom(masterSeed, `assignment-${session.id}`, processedRef.current)
@@ -131,8 +130,7 @@ export function GridCoinFlip({
       const result = flipSeed < 0.5 ? "heads" : "tails"
       const winner = result === "heads" ? headsPlayer : tailsPlayer
       
-      // Update grid
-      newGrid[gameIndex] = { result, index: gameIndex }
+
       
       results.push({
         gameIndex,
@@ -150,13 +148,23 @@ export function GridCoinFlip({
       else if (winner === player2) batchPlayer2Wins++
     }
     
-    setGrid(newGrid)
+
     setStats(prev => ({
       headsCount: prev.headsCount + batchHeads,
       tailsCount: prev.tailsCount + batchTails,
       player1Wins: prev.player1Wins + batchPlayer1Wins,
       player2Wins: prev.player2Wins + batchPlayer2Wins,
     }))
+    
+    // Store all flips for history display
+    setAllFlips(prev => [
+      ...prev,
+      ...results.map(result => ({
+        result: result.result,
+        winner: result.winner,
+        round: result.gameIndex + 1
+      }))
+    ])
     
     processedRef.current += currentBatch
     
@@ -174,134 +182,119 @@ export function GridCoinFlip({
     onUpdate(session.id, processedRef.current, results)
   }
 
-  // Calculate grid dimensions
-  const getGridDimensions = () => {
-    const total = session.count
-    if (total <= 25) return { cols: 5, rows: Math.ceil(total / 5) }
-    if (total <= 50) return { cols: 10, rows: Math.ceil(total / 10) }
-    if (total <= 100) return { cols: 20, rows: Math.ceil(total / 20) }
-    return { cols: 25, rows: Math.ceil(total / 25) }
-  }
 
-  const { cols, rows } = getGridDimensions()
-  const cellSize = Math.min(20, 400 / Math.max(cols, rows))
-
-  // Get player colors (neutral)
-  const player1Color = "rgb(100 116 139)" // slate-500
-  const player2Color = "rgb(71 85 105)" // slate-600
 
   return (
-    <div className="space-y-4">
-      {/* Grid Visualization */}
-      <div className="flex justify-center p-4">
-        <div 
-          className="grid gap-0.5"
-          style={{
-            gridTemplateColumns: `repeat(${cols}, ${cellSize}px)`,
-            gridTemplateRows: `repeat(${rows}, ${cellSize}px)`,
-          }}
-        >
-          {grid.slice(0, session.count).map((cell, index) => (
-            <motion.div
-              key={index}
-              initial={{ scale: 0 }}
-              animate={{ 
-                scale: cell.result ? 1 : 0.3,
-                backgroundColor: cell.result === 'heads' 
-                  ? player1Color 
-                  : cell.result === 'tails' 
-                  ? player2Color 
-                  : 'rgb(30 30 30 / 0.5)'
-              }}
-              transition={{ 
-                duration: 0.3,
-                delay: cell.result ? 0 : 0
-              }}
-              className="rounded-sm"
-              style={{
-                width: cellSize,
-                height: cellSize,
-              }}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Legend */}
-      <div className="flex justify-center gap-6 text-sm">
-        <div className="flex items-center gap-2">
-          <div 
-            className="w-3 h-3 rounded-sm" 
-            style={{ backgroundColor: player1Color }}
+    <div className="space-y-6">
+      {/* Progress Header */}
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-sm font-medium">{processedRef.current}/{session.count}</span>
+        {processedRef.current < session.count && (
+          <motion.div
+            animate={{ opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+            className="w-2 h-2 bg-green-500 rounded-full"
           />
-          <span>Heads ({player1})</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div 
-            className="w-3 h-3 rounded-sm" 
-            style={{ backgroundColor: player2Color }}
-          />
-          <span>Tails ({player2})</span>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="bg-green-500/10 rounded-lg p-3 border border-green-500/20">
-          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-            {stats.headsCount}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            Heads ({((stats.headsCount / Math.max(processedRef.current, 1)) * 100).toFixed(1)}%)
-          </div>
-        </div>
-        <div className="bg-red-500/10 rounded-lg p-3 border border-red-500/20">
-          <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-            {stats.tailsCount}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            Tails ({((stats.tailsCount / Math.max(processedRef.current, 1)) * 100).toFixed(1)}%)
-          </div>
-        </div>
-      </div>
-
-      {/* Player Wins */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
-          <span className="font-medium">{player1}</span>
-          <div className="flex items-center gap-2">
-            <div className="text-sm text-muted-foreground">
-              {((stats.player1Wins / Math.max(processedRef.current, 1)) * 100).toFixed(1)}%
-            </div>
-            <span className="font-semibold">{stats.player1Wins}</span>
-          </div>
-        </div>
-        <div className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
-          <span className="font-medium">{player2}</span>
-          <div className="flex items-center gap-2">
-            <div className="text-sm text-muted-foreground">
-              {((stats.player2Wins / Math.max(processedRef.current, 1)) * 100).toFixed(1)}%
-            </div>
-            <span className="font-semibold">{stats.player2Wins}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Status */}
-      <div className="text-center text-xs text-muted-foreground">
-        {processedRef.current < session.count ? (
-          <span className="flex items-center justify-center gap-1">
-            <motion.div
-              animate={{ opacity: [0.5, 1, 0.5] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-              className="w-2 h-2 bg-green-500 rounded-full"
-            />
-            Processing {processedRef.current}/{session.count}
-          </span>
-        ) : (
-          <span className="text-green-600">✓ Complete</span>
         )}
       </div>
+
+      {/* Score Summary */}
+      <div className="flex items-center justify-center gap-8 text-center">
+        <div>
+          <div className="text-2xl font-bold">{stats.player1Wins}</div>
+          <div className="text-sm text-muted-foreground">{player1}</div>
+        </div>
+        <div className="text-muted-foreground">VS</div>
+        <div>
+          <div className="text-2xl font-bold">{stats.player2Wins}</div>
+          <div className="text-sm text-muted-foreground">{player2}</div>
+        </div>
+      </div>
+
+      {/* Flip Distribution Bar Graph */}
+      <div className="space-y-3">
+        <h4 className="text-sm font-medium text-muted-foreground">Flip Distribution</h4>
+        <div className="space-y-3">
+          {[
+            { flip: 'heads', icon: '/heads.svg', count: stats.headsCount, color: 'bg-green-500' },
+            { flip: 'tails', icon: '/tails.svg', count: stats.tailsCount, color: 'bg-red-500' }
+          ].map(({ flip, icon, count, color }) => {
+            const total = stats.headsCount + stats.tailsCount
+            const percentage = total > 0 ? (count / total) * 100 : 0
+            return (
+              <div key={flip} className="flex items-center gap-3">
+                <Image 
+                  src={icon} 
+                  alt={flip} 
+                  width={24} 
+                  height={24} 
+                  className="w-6 h-6 drop-shadow-sm filter brightness-105" 
+                />
+                <div className="flex-1">
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="capitalize font-medium">{flip}</span>
+                    <span className="text-muted-foreground">{count} ({percentage.toFixed(1)}%)</span>
+                  </div>
+                  <div className="w-full bg-muted/30 rounded-full h-2">
+                    <motion.div
+                      className={`h-2 rounded-full ${color}`}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${percentage}%` }}
+                      transition={{ duration: 0.5, ease: "easeOut" }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* All Flips History */}
+      {allFlips.length > 0 && (
+        <div className="space-y-3">
+          <h4 className="text-sm font-medium text-muted-foreground">All Rounds</h4>
+          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 2xl:grid-cols-16 gap-2">
+            {allFlips.map((flip, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: index * 0.01 }}
+                className={`p-2 rounded-lg border transition-colors ${
+                  flip.winner === player1 ? 'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800' :
+                  flip.winner === player2 ? 'bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800' :
+                  'bg-muted/30 border-border'
+                }`}
+              >
+                <div className="text-xs text-muted-foreground mb-1 text-center">R{flip.round}</div>
+                <div className="flex items-center justify-center">
+                  <Image 
+                    src={flip.result === 'heads' ? '/heads.svg' : '/tails.svg'}
+                    alt={flip.result}
+                    width={24}
+                    height={24}
+                    className="w-6 h-6 drop-shadow-sm"
+                  />
+                </div>
+                <div className="text-xs text-center mt-1 font-medium">
+                  {flip.winner.slice(0, 1)}
+                </div>
+              </motion.div>
+            ))}
+            
+            {/* Empty slots for remaining rounds */}
+            {Array.from({ length: session.count - allFlips.length }, (_, index) => (
+              <div
+                key={`empty-${index}`}
+                className="p-2 rounded-lg border border-dashed border-muted/50 flex items-center justify-center"
+              >
+                <div className="text-xs text-muted-foreground">R{allFlips.length + index + 1}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
