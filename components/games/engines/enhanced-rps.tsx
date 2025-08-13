@@ -65,6 +65,14 @@ export function EnhancedRPS({
   }>>([])
   
   const [isAnimating, setIsAnimating] = useState(false)
+  const [hoveredGame, setHoveredGame] = useState<{
+    player1Move: Move
+    player2Move: Move
+    winner: string
+    round: number
+  } | null>(null)
+  const [showHoverAnimation, setShowHoverAnimation] = useState(false)
+  const [animationKey, setAnimationKey] = useState(0)
   const [stats, setStats] = useState({
     player1Wins: 0,
     player2Wins: 0,
@@ -352,6 +360,51 @@ export function EnhancedRPS({
         </AnimatePresence>
       </div>
 
+      {/* Hover Animation Overlay */}
+      <AnimatePresence>
+        {showHoverAnimation && hoveredGame && (
+          <motion.div
+            key={animationKey}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none"
+          >
+            <div className="flex items-center justify-center gap-8">
+              <motion.div
+                initial={{ x: -150, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: -150, opacity: 0 }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+              >
+                <Image 
+                  src={MOVE_ICONS[hoveredGame.player1Move]}
+                  alt={hoveredGame.player1Move}
+                  width={80}
+                  height={80}
+                  className="w-20 h-20 drop-shadow-2xl"
+                />
+              </motion.div>
+
+              <motion.div
+                initial={{ x: 150, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: 150, opacity: 0 }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+              >
+                <Image 
+                  src={MOVE_ICONS[hoveredGame.player2Move]}
+                  alt={hoveredGame.player2Move}
+                  width={80}
+                  height={80}
+                  className="w-20 h-20 drop-shadow-2xl"
+                />
+              </motion.div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Progress Header */}
       <div className="flex items-center gap-2 mb-2">
         <span className="text-sm font-medium">{processedRef.current}/{session.count}</span>
@@ -436,11 +489,22 @@ export function EnhancedRPS({
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: index * 0.02 }}
-                className={`p-2 rounded-lg border transition-colors ${
+                className={`p-2 rounded-lg border transition-colors cursor-pointer hover:scale-105 ${
                   game.winner === player1 ? 'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800' :
                   game.winner === player2 ? 'bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800' :
                   'bg-muted/30 border-border'
                 }`}
+                onMouseEnter={() => {
+                  if (!hoveredGame || hoveredGame.round !== game.round) {
+                    setHoveredGame(game)
+                    setShowHoverAnimation(true)
+                    setAnimationKey(prev => prev + 1)
+                  }
+                }}
+                onMouseLeave={() => {
+                  setHoveredGame(null)
+                  setShowHoverAnimation(false)
+                }}
               >
                 <div className="text-xs text-muted-foreground mb-1 text-center">R{game.round}</div>
                 <div className="flex items-center justify-center gap-1">
