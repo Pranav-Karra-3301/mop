@@ -74,30 +74,21 @@ export default function ModernGamingPage() {
   
   const [mounted, setMounted] = useState(false)
   const { setTheme } = useTheme()
+  const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>("system")
 
   useEffect(() => {
     setMounted(true)
-    // Automatically detect system theme
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setTheme('dark')
-    } else {
-      setTheme('light')
-    }
-    
-    // Listen for system theme changes
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    const handleChange = (e: MediaQueryListEvent) => {
-      setTheme(e.matches ? 'dark' : 'light')
-    }
-    
-    mediaQuery.addEventListener('change', handleChange)
-    
+    setTheme('system')
     // Generate random initial seed
     const randomSeed = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
     setGameSettings(prev => ({ ...prev, customSeed: randomSeed }))
-    
-    return () => mediaQuery.removeEventListener('change', handleChange)
   }, [])
+
+  const cycleTheme = () => {
+    const next = themeMode === 'system' ? 'light' : themeMode === 'light' ? 'dark' : 'system'
+    setThemeMode(next)
+    setTheme(next)
+  }
 
   const startGameSessions = async () => {
     if (!appState.player1.trim() || !appState.player2.trim()) return
@@ -199,15 +190,21 @@ export default function ModernGamingPage() {
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
 
-      {/* Replay Button */}
+      {/* Theme Toggle Button */}
       <motion.button
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        onClick={resetAll}
+        onClick={cycleTheme}
         className="fixed top-6 right-6 z-50 p-3 rounded-xl bg-card border border-border hover:bg-muted/50 transition-all duration-300 shadow-lg"
-        title="Replay All Games"
+        title={`Theme: ${themeMode}`}
       >
-        <RotateCcw className="h-5 w-5 text-foreground" />
+        {themeMode === 'light' ? (
+          <Sun className="h-5 w-5 text-foreground" />
+        ) : themeMode === 'dark' ? (
+          <Moon className="h-5 w-5 text-foreground" />
+        ) : (
+          <Activity className="h-5 w-5 text-foreground" />
+        )}
       </motion.button>
 
       <div className="max-w-7xl mx-auto px-6 py-12 relative z-10">
@@ -244,7 +241,7 @@ export default function ModernGamingPage() {
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.2 }}
                 >
-                  Settle any debate with style
+                  Let chance pick fairly
                 </motion.p>
               </motion.div>
 
@@ -464,6 +461,15 @@ export default function ModernGamingPage() {
             </motion.div>
           )}
         </AnimatePresence>
+      </div>
+      {/* Bottom CTA: Why we made this */}
+      <div className="fixed bottom-6 inset-x-0 z-40 flex justify-center">
+        <a
+          href="/story"
+          className="text-sm font-medium underline underline-offset-4 px-3 py-1.5 rounded-full text-amber-800 dark:text-amber-300 bg-amber-50/80 dark:bg-amber-900/30 border border-amber-200/60 dark:border-amber-800/40 shadow-sm"
+        >
+          Why we made this
+        </a>
       </div>
     </div>
   )
