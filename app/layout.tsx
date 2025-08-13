@@ -8,8 +8,11 @@ import { Providers } from "./providers"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "MOP Gaming",
-  description: "Modern gaming platform with real-time analytics",
+  title: "sqable",
+  description: "Gaming dashboard with transparent gameplay",
+  icons: {
+    icon: "/Logo.svg",
+  },
 }
 
 export default function RootLayout({

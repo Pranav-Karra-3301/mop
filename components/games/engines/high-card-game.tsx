@@ -247,8 +247,8 @@ export function HighCardGame({
       timestamp: Date.now(),
     })
     
-    // Update parent
-    onUpdate(session.id, processedRef.current, lastResult)
+    // Update parent with all results from this batch
+    onUpdate(session.id, processedRef.current, results)
     
     setTimeout(() => {
       setIsDealing(false)
@@ -324,18 +324,15 @@ export function HighCardGame({
   return (
     <div className="space-y-6">
       {/* Progress Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="font-medium">{processedRef.current}/{session.count}</span>
-          {processedRef.current < session.count && (
-            <motion.div
-              animate={{ opacity: [0.5, 1, 0.5] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-              className="w-2 h-2 bg-green-500 rounded-full"
-            />
-          )}
-        </div>
-        <SegmentedProgress value={progress} total={session.count} className="flex-1 ml-4 h-1.5" />
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-sm font-medium">{processedRef.current}/{session.count}</span>
+        {processedRef.current < session.count && (
+          <motion.div
+            animate={{ opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+            className="w-2 h-2 bg-green-500 rounded-full"
+          />
+        )}
       </div>
 
       {/* Score Summary */}

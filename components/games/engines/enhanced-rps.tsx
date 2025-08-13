@@ -57,6 +57,13 @@ export function EnhancedRPS({
     winner: string | null
   }>({ player1Move: null, player2Move: null, winner: null })
   
+  const [allGames, setAllGames] = useState<Array<{
+    player1Move: Move
+    player2Move: Move
+    winner: string
+    round: number
+  }>>([])
+  
   const [isAnimating, setIsAnimating] = useState(false)
   const [stats, setStats] = useState({
     player1Wins: 0,
@@ -111,8 +118,8 @@ export function EnhancedRPS({
   const startProcessing = () => {
     if (intervalRef.current) clearInterval(intervalRef.current)
     
-    const batchSize = 5
-    const delay = 400 // Slower for better visualization
+    const batchSize = 3
+    const delay = 800 // Much slower for better viewing experience
     
     intervalRef.current = setInterval(() => {
       if (processedRef.current >= session.count) {
@@ -193,6 +200,17 @@ export function EnhancedRPS({
       winner: lastResult.winner,
     })
     
+    // Store all games for history display
+    setAllGames(prev => [
+      ...prev,
+      ...results.map(result => ({
+        player1Move: result.player1Move,
+        player2Move: result.player2Move,
+        winner: result.winner,
+        round: result.gameIndex + 1
+      }))
+    ])
+    
     processedRef.current += currentBatch
     
     // Log batch results
@@ -206,8 +224,8 @@ export function EnhancedRPS({
       timestamp: Date.now(),
     })
     
-    // Update parent
-    onUpdate(session.id, processedRef.current, lastResult)
+    // Update parent with all results from this batch
+    onUpdate(session.id, processedRef.current, results)
     
     setTimeout(() => {
       setIsAnimating(false)
@@ -216,8 +234,10 @@ export function EnhancedRPS({
 
   const progress = (processedRef.current / session.count) * 100
 
+  const totalMoves = stats.rockCount + stats.paperCount + stats.scissorsCount
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Battle Animation */}
       <div className="relative h-44 md:h-48">
         {/* Preview/Placeholder before game starts */}
@@ -314,95 +334,145 @@ export function EnhancedRPS({
             >
               <Badge 
                 variant={currentGame.winner === "Tie" ? "secondary" : "default"}
-                className="text-sm"
+                className="text-sm flex items-center gap-1"
               >
-                {currentGame.winner === "Tie" ? "🤝 Tie!" : `${currentGame.winner} wins!`}
+                {currentGame.winner === "Tie" ? (
+                  <>🤝 Tie<Image src="/!.svg" alt="!" width={12} height={12} className="w-3 h-3" /></>
+                ) : (
+                  <>{currentGame.winner} wins<Image src="/!.svg" alt="!" width={12} height={12} className="w-3 h-3" /></>
+                )}
               </Badge>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* Progress */}
-      <div className="space-y-2">
-        <div className="flex justify-between text-sm text-muted-foreground">
-          <span>Progress</span>
-          <span className="font-mono">{processedRef.current}/{session.count}</span>
-        </div>
-        <SegmentedProgress value={progress} total={session.count} className="h-2" />
-      </div>
-
-      {/* Score Board */}
-      <div className="grid grid-cols-3 gap-2">
-        <Card className="bg-muted/30">
-          <CardContent className="p-3 text-center">
-            <div className="text-xl font-bold">{stats.player1Wins}</div>
-            <div className="text-xs text-muted-foreground">{player1}</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-muted/30">
-          <CardContent className="p-3 text-center">
-            <div className="text-xl font-bold">{stats.ties}</div>
-            <div className="text-xs text-muted-foreground">Ties</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-muted/30">
-          <CardContent className="p-3 text-center">
-            <div className="text-xl font-bold">{stats.player2Wins}</div>
-            <div className="text-xs text-muted-foreground">{player2}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Move Distribution */}
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="space-y-2">
-          <Image 
-            src={MOVE_ICONS.rock} 
-            alt="Rock" 
-            width={40} 
-            height={40} 
-            className="w-[56px] h-[56px] md:w-[64px] md:h-[64px] mx-auto drop-shadow-md filter brightness-105" 
+      {/* Progress Header */}
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-sm font-medium">{processedRef.current}/{session.count}</span>
+        {processedRef.current < session.count && (
+          <motion.div
+            animate={{ opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+            className="w-2 h-2 bg-green-500 rounded-full"
           />
-          <div className="text-sm font-medium">{stats.rockCount}</div>
-        </div>
-        <div className="space-y-2">
-          <Image 
-            src={MOVE_ICONS.paper} 
-            alt="Paper" 
-            width={40} 
-            height={40} 
-            className="w-[56px] h-[56px] md:w-[64px] md:h-[64px] mx-auto drop-shadow-md filter brightness-105" 
-          />
-          <div className="text-sm font-medium">{stats.paperCount}</div>
-        </div>
-        <div className="space-y-2">
-          <Image 
-            src={MOVE_ICONS.scissors} 
-            alt="Scissors" 
-            width={40} 
-            height={40} 
-            className="w-[56px] h-[56px] md:w-[64px] md:h-[64px] mx-auto drop-shadow-md filter brightness-105" 
-          />
-          <div className="text-sm font-medium">{stats.scissorsCount}</div>
-        </div>
-      </div>
-
-      {/* Status */}
-      <div className="text-center text-xs text-muted-foreground">
-        {processedRef.current < session.count ? (
-          <span className="flex items-center justify-center gap-1">
-            <motion.div
-              animate={{ opacity: [0.5, 1, 0.5] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-              className="w-2 h-2 bg-green-500 rounded-full"
-            />
-            Processing...
-          </span>
-        ) : (
-          <span className="text-green-600">✓ Complete</span>
         )}
       </div>
+
+      {/* Score Summary */}
+      <div className="flex items-center justify-center gap-8 text-center">
+        <div>
+          <div className="text-2xl font-bold">{stats.player1Wins}</div>
+          <div className="text-sm text-muted-foreground">{player1}</div>
+        </div>
+        <div className="text-muted-foreground">VS</div>
+        <div>
+          <div className="text-2xl font-bold">{stats.player2Wins}</div>
+          <div className="text-sm text-muted-foreground">{player2}</div>
+        </div>
+        {stats.ties > 0 && (
+          <>
+            <div className="text-muted-foreground">|</div>
+            <div>
+              <div className="text-xl font-bold">{stats.ties}</div>
+              <div className="text-sm text-muted-foreground">Ties</div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Move Distribution Bar Graph */}
+      <div className="space-y-3">
+        <h4 className="text-sm font-medium text-muted-foreground">Move Distribution</h4>
+        <div className="space-y-3">
+          {[
+            { move: 'rock', icon: MOVE_ICONS.rock, count: stats.rockCount, color: 'bg-gray-500' },
+            { move: 'paper', icon: MOVE_ICONS.paper, count: stats.paperCount, color: 'bg-blue-500' },
+            { move: 'scissors', icon: MOVE_ICONS.scissors, count: stats.scissorsCount, color: 'bg-red-500' }
+          ].map(({ move, icon, count, color }) => {
+            const percentage = totalMoves > 0 ? (count / totalMoves) * 100 : 0
+            return (
+              <div key={move} className="flex items-center gap-3">
+                <Image 
+                  src={icon} 
+                  alt={move} 
+                  width={24} 
+                  height={24} 
+                  className="w-6 h-6 drop-shadow-sm filter brightness-105" 
+                />
+                <div className="flex-1">
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="capitalize font-medium">{move}</span>
+                    <span className="text-muted-foreground">{count} ({percentage.toFixed(1)}%)</span>
+                  </div>
+                  <div className="w-full bg-muted/30 rounded-full h-2">
+                    <motion.div
+                      className={`h-2 rounded-full ${color}`}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${percentage}%` }}
+                      transition={{ duration: 0.5, ease: "easeOut" }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* All Games History */}
+      {allGames.length > 0 && (
+        <div className="space-y-3">
+          <h4 className="text-sm font-medium text-muted-foreground">All Rounds</h4>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-2">
+            {allGames.map((game, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: index * 0.02 }}
+                className={`p-2 rounded-lg border transition-colors ${
+                  game.winner === player1 ? 'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800' :
+                  game.winner === player2 ? 'bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800' :
+                  'bg-muted/30 border-border'
+                }`}
+              >
+                <div className="text-xs text-muted-foreground mb-1 text-center">R{game.round}</div>
+                <div className="flex items-center justify-center gap-1">
+                  <Image 
+                    src={MOVE_ICONS[game.player1Move]}
+                    alt={game.player1Move}
+                    width={16}
+                    height={16}
+                    className="w-4 h-4 drop-shadow-sm"
+                  />
+                  <div className="text-xs text-muted-foreground">vs</div>
+                  <Image 
+                    src={MOVE_ICONS[game.player2Move]}
+                    alt={game.player2Move}
+                    width={16}
+                    height={16}
+                    className="w-4 h-4 drop-shadow-sm"
+                  />
+                </div>
+                <div className="text-xs text-center mt-1 font-medium">
+                  {game.winner === "Tie" ? "Tie" : game.winner.slice(0, 1)}
+                </div>
+              </motion.div>
+            ))}
+            
+            {/* Empty slots for remaining rounds */}
+            {Array.from({ length: session.count - allGames.length }, (_, index) => (
+              <div
+                key={`empty-${index}`}
+                className="p-2 rounded-lg border border-dashed border-muted/50 flex items-center justify-center"
+              >
+                <div className="text-xs text-muted-foreground">R{allGames.length + index + 1}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

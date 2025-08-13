@@ -27,29 +27,29 @@ interface AppState {
   masterSeed: string | null
 }
 
-const gameConfigs = [
-  { 
-    type: "coin-flip", 
-    count: 100, 
-    label: "Coin Flips",
-    description: "Fast decisions",
-    icon: "/coinflip.gif"
-  },
-  {
-    type: "rock-paper-scissors",
-    count: 50,
-    label: "Rock Paper Scissors",
-    description: "Strategic battles",
-    icon: "/scissor.svg"
-  },
-  { 
-    type: "high-card", 
-    count: 25, 
-    label: "High Card",
-    description: "Card showdown",
-    icon: "/cards.svg"
-  },
-]
+  const gameConfigs = [
+    {
+      type: "rock-paper-scissors",
+      count: 50,
+      label: "Rock Paper Scissors",
+      description: "Strategic battles",
+      icon: "/scissor.svg"
+    },
+    {
+      type: "high-card",
+      count: 25,
+      label: "High Card",
+      description: "Card showdown",
+      icon: "/cards.svg"
+    },
+    {
+      type: "coin-flip",
+      count: 100,
+      label: "Coin Flips",
+      description: "Fast decisions",
+      icon: "/coinflip.gif"
+    },
+  ]
 
 export default function ModernGamingPage() {
   const [appState, setAppState] = useState<AppState>({
@@ -112,7 +112,15 @@ export default function ModernGamingPage() {
       ...prev,
       sessions: prev.sessions.map((session) => {
         if (session.id === sessionId) {
-          const newResults = result ? [...session.results, result] : session.results
+          // Handle both single results and arrays of results
+          let newResults = session.results
+          if (result) {
+            if (Array.isArray(result)) {
+              newResults = [...session.results, ...result]
+            } else {
+              newResults = [...session.results, result]
+            }
+          }
           const isComplete = completed >= session.count
           return {
             ...session,
@@ -380,6 +388,47 @@ export default function ModernGamingPage() {
                   total={175}
                   className="h-2"
                 />
+                
+                {/* Overall Winner Announcement */}
+                {appState.sessions.every(s => s.completed >= s.count) && (() => {
+                  const totalPlayer1Wins = appState.sessions.reduce((sum, s) => 
+                    sum + s.results.filter(r => r.winner === appState.player1).length, 0)
+                  const totalPlayer2Wins = appState.sessions.reduce((sum, s) => 
+                    sum + s.results.filter(r => r.winner === appState.player2).length, 0)
+                  const totalTies = appState.sessions.reduce((sum, s) => 
+                    sum + s.results.filter(r => r.winner === "Tie").length, 0)
+                  const totalResults = appState.sessions.reduce((sum, s) => sum + s.results.length, 0)
+                  
+                  return (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="mt-4 text-center"
+                    >
+                      <div className="flex items-center justify-center gap-2 text-lg font-bold">
+                        {totalPlayer1Wins > totalPlayer2Wins ? (
+                          <>
+                            {appState.player1} Wins Overall
+                            <Image src="/!.svg" alt="!" width={24} height={24} className="w-6 h-6 drop-shadow-lg" />
+                          </>
+                        ) : totalPlayer2Wins > totalPlayer1Wins ? (
+                          <>
+                            {appState.player2} Wins Overall
+                            <Image src="/!.svg" alt="!" width={24} height={24} className="w-6 h-6 drop-shadow-lg" />
+                          </>
+                        ) : (
+                          <>
+                            Overall Tie
+                            <Image src="/!.svg" alt="!" width={24} height={24} className="w-6 h-6 drop-shadow-lg" />
+                          </>
+                        )}
+                      </div>
+                      <div className="text-sm text-muted-foreground mt-2">
+                        {totalPlayer1Wins} + {totalPlayer2Wins} + {totalTies} = {totalResults} / {totalGames}
+                      </div>
+                    </motion.div>
+                  )
+                })()}
               </motion.div>
 
               {/* Modern Dashboard */}

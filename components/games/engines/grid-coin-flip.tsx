@@ -170,9 +170,8 @@ export function GridCoinFlip({
       timestamp: Date.now(),
     })
     
-    // Update parent
-    const lastResult = results[results.length - 1]
-    onUpdate(session.id, processedRef.current, lastResult)
+    // Update parent with all results from this batch
+    onUpdate(session.id, processedRef.current, results)
   }
 
   // Calculate grid dimensions
