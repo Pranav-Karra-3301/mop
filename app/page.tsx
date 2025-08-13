@@ -2,12 +2,19 @@
 
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Moon, Sun, Play, RotateCcw, Activity, Sparkles } from "lucide-react"
+import { Moon, Sun, Play, RotateCcw, Activity, Sparkles, Info, Settings, Shuffle } from "lucide-react"
 import Image from "next/image"
 import { useTheme } from "next-themes"
 import { generateGameSeed, createGameId } from "@/lib/crypto/seed"
 import { ModernDashboard } from "@/components/games/modern-dashboard"
 import { SegmentedProgress } from "@/components/ui/segmented-progress"
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 
 interface GameSession {
   id: string
@@ -60,6 +67,11 @@ export default function ModernGamingPage() {
     masterSeed: null,
   })
   
+  const [gameSettings, setGameSettings] = useState({
+    customSeed: "",
+    useCustomSeed: false,
+  })
+  
   const [mounted, setMounted] = useState(false)
   const { setTheme } = useTheme()
 
@@ -79,16 +91,28 @@ export default function ModernGamingPage() {
     }
     
     mediaQuery.addEventListener('change', handleChange)
+    
+    // Generate random initial seed
+    const randomSeed = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+    setGameSettings(prev => ({ ...prev, customSeed: randomSeed }))
+    
     return () => mediaQuery.removeEventListener('change', handleChange)
   }, [])
 
   const startGameSessions = async () => {
     if (!appState.player1.trim() || !appState.player2.trim()) return
 
-    const masterSeed = await generateGameSeed(createGameId())
-    const masterSeedHex = Array.from(masterSeed)
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("")
+    let masterSeedHex: string
+    if (gameSettings.useCustomSeed && gameSettings.customSeed.trim()) {
+      // Use custom seed directly as hex (pad if necessary)
+      masterSeedHex = gameSettings.customSeed.trim().replace(/[^a-fA-F0-9]/g, '').substring(0, 64).padEnd(64, '0')
+    } else {
+      // Generate cryptographic seed
+      const masterSeed = await generateGameSeed(createGameId())
+      masterSeedHex = Array.from(masterSeed)
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("")
+    }
 
     const newSessions: GameSession[] = gameConfigs.map((config) => ({
       id: createGameId(),
@@ -370,24 +394,133 @@ export default function ModernGamingPage() {
                 )}
               </motion.div>
 
-              {/* Overall Progress */}
+              {/* Game State Settings */}
               <motion.div 
                 className="bg-card rounded-xl p-4 border border-border mb-6"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
               >
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold">Overall Progress</h3>
-                  <span className="text-sm text-muted-foreground">
-                    {Math.round((appState.sessions.reduce((sum, s) => sum + s.completed, 0) / totalGames) * 100)}% Complete
-                  </span>
+                <div className="flex items-center gap-2 mb-4">
+                  <Settings className="h-5 w-5" />
+                  <h3 className="font-semibold">Game State Settings</h3>
                 </div>
-                <SegmentedProgress 
-                  value={(appState.sessions.reduce((sum, s) => sum + s.completed, 0) / totalGames) * 100}
-                  total={175}
-                  className="h-2"
-                />
+                
+                <div className="space-y-4">
+                  {/* Master Seed Control */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="custom-seed" className="text-sm font-medium">Master Seed</Label>
+                      <HoverCard>
+                        <HoverCardTrigger>
+                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80">
+                          <div className="space-y-2">
+                            <h4 className="font-semibold">Master Seed</h4>
+                            <p className="text-sm text-muted-foreground">
+                              The cryptographic seed that determines all game outcomes. When using a custom seed, 
+                              games become reproducible - the same seed will always produce the same results. 
+                              When disabled, a cryptographically secure random seed is generated automatically.
+                            </p>
+                            <p className="text-sm font-medium">User Editable: Yes</p>
+                          </div>
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Switch
+                        id="use-custom-seed"
+                        checked={gameSettings.useCustomSeed}
+                        onCheckedChange={(checked) => 
+                          setGameSettings(prev => ({ ...prev, useCustomSeed: checked }))
+                        }
+                      />
+                      <Label htmlFor="use-custom-seed" className="text-sm">
+                        Use Custom Seed
+                      </Label>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <Input
+                        id="custom-seed"
+                        placeholder="Enter hex seed (auto-generated if empty)"
+                        value={gameSettings.customSeed}
+                        onChange={(e) => 
+                          setGameSettings(prev => ({ ...prev, customSeed: e.target.value }))
+                        }
+                        disabled={!gameSettings.useCustomSeed}
+                        className="font-mono text-xs"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const newSeed = Math.random().toString(36).substring(2, 15) + 
+                                         Math.random().toString(36).substring(2, 15)
+                          setGameSettings(prev => ({ ...prev, customSeed: newSeed }))
+                        }}
+                        disabled={!gameSettings.useCustomSeed}
+                      >
+                        <Shuffle className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* Current Master Seed Display */}
+                  {appState.masterSeed && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Label className="text-sm font-medium">Current Master Seed</Label>
+                        <HoverCard>
+                          <HoverCardTrigger>
+                            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-80">
+                            <div className="space-y-2">
+                              <h4 className="font-semibold">Current Master Seed</h4>
+                              <p className="text-sm text-muted-foreground">
+                                This is the actual seed being used for the current game session. 
+                                All randomness in every game is derived from this seed using deterministic algorithms.
+                              </p>
+                              <p className="text-sm font-medium">User Editable: No (generated at game start)</p>
+                            </div>
+                          </HoverCardContent>
+                        </HoverCard>
+                      </div>
+                      <div className="p-2 bg-muted rounded text-xs font-mono break-all">
+                        {appState.masterSeed}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Game Algorithm Info */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium">Randomness Algorithm</Label>
+                      <HoverCard>
+                        <HoverCardTrigger>
+                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80">
+                          <div className="space-y-2">
+                            <h4 className="font-semibold">Deterministic Randomness</h4>
+                            <p className="text-sm text-muted-foreground">
+                              Uses cryptographic hashing with context-specific derivation. Each game outcome 
+                              is derived using: deriveGameRandom(masterSeed, gameContext, gameIndex). 
+                              This ensures reproducibility while maintaining statistical randomness.
+                            </p>
+                            <p className="text-sm font-medium">User Editable: No (system algorithm)</p>
+                          </div>
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
+                    <Badge variant="secondary" className="text-xs">
+                      Cryptographic Hash + XOR Mixing
+                    </Badge>
+                  </div>
+                </div>
                 
                 {/* Overall Winner Announcement */}
                 {appState.sessions.every(s => s.completed >= s.count) && (() => {
@@ -395,15 +528,12 @@ export default function ModernGamingPage() {
                     sum + s.results.filter(r => r.winner === appState.player1).length, 0)
                   const totalPlayer2Wins = appState.sessions.reduce((sum, s) => 
                     sum + s.results.filter(r => r.winner === appState.player2).length, 0)
-                  const totalTies = appState.sessions.reduce((sum, s) => 
-                    sum + s.results.filter(r => r.winner === "Tie").length, 0)
-                  const totalResults = appState.sessions.reduce((sum, s) => sum + s.results.length, 0)
                   
                   return (
                     <motion.div
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      className="mt-4 text-center"
+                      className="mt-4 pt-4 border-t text-center"
                     >
                       <div className="flex items-center justify-center gap-2 text-lg font-bold">
                         {totalPlayer1Wins > totalPlayer2Wins ? (
@@ -422,9 +552,6 @@ export default function ModernGamingPage() {
                             <Image src="/!.svg" alt="!" width={24} height={24} className="w-6 h-6 drop-shadow-lg" />
                           </>
                         )}
-                      </div>
-                      <div className="text-sm text-muted-foreground mt-2">
-                        {totalPlayer1Wins} + {totalPlayer2Wins} + {totalTies} = {totalResults} / {totalGames}
                       </div>
                     </motion.div>
                   )
